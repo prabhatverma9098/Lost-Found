@@ -2,5 +2,7 @@
   "name": "Smart Campus Lost & Found Management System",
   "description": "Smart Campus Lost & Found Management System with AI Image Matching and AI Campus Assistant.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
