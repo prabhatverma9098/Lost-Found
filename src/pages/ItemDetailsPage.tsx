@@ -11,13 +11,17 @@ import {
   ArrowLeft, 
   ShieldCheck, 
   CheckCircle,
-  FileText
+  Building,
+  CreditCard,
+  Lock,
+  Clock
 } from 'lucide-react';
+import { StatusTimeline } from '../components/ui/StatusTimeline';
 
 export const ItemDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { items, claims } = useApp();
+  const { items, claims, isAdmin } = useApp();
 
   // Find item by URL ID
   const item = items.find(i => i.id === id);
@@ -131,7 +135,7 @@ export const ItemDetailsPage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-12 gap-1 py-1 border-b border-slate-100">
-                  <span className="col-span-4 text-slate-500 font-medium">Found Date</span>
+                  <span className="col-span-4 text-slate-500 font-medium">Date</span>
                   <span className="col-span-1 text-slate-400">:</span>
                   <span className="col-span-7 font-semibold text-slate-900">{item.date}</span>
                 </div>
@@ -139,13 +143,23 @@ export const ItemDetailsPage: React.FC = () => {
                 <div className="grid grid-cols-12 gap-1 py-1 border-b border-slate-100">
                   <span className="col-span-4 text-slate-500 font-medium">Location</span>
                   <span className="col-span-1 text-slate-400">:</span>
-                  <span className="col-span-7 font-semibold text-slate-900">{item.location}</span>
+                  <span className="col-span-7 font-semibold text-slate-900">
+                    {item.location}
+                    {item.building ? ` (${item.building})` : ''}
+                    {item.area ? ` — ${item.area}` : ''}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-12 gap-1 py-1 border-b border-slate-100">
                   <span className="col-span-4 text-slate-500 font-medium">Reported By</span>
                   <span className="col-span-1 text-slate-400">:</span>
                   <span className="col-span-7 font-semibold text-slate-900">{item.reportedBy}</span>
+                </div>
+
+                <div className="grid grid-cols-12 gap-1 py-1 border-b border-slate-100">
+                  <span className="col-span-4 text-slate-500 font-medium">Current Status</span>
+                  <span className="col-span-1 text-slate-400">:</span>
+                  <span className="col-span-7 font-bold text-[#0866E8]">{item.status}</span>
                 </div>
 
                 <div className="grid grid-cols-12 gap-1 py-1">
@@ -156,6 +170,28 @@ export const ItemDetailsPage: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* OCR card if ID card */}
+              {item.ocrData && (
+                <div className="p-3.5 bg-blue-50/70 rounded-xl border border-blue-200 text-xs space-y-2">
+                  <div className="flex items-center gap-1.5 font-bold text-[#0B1F3A]">
+                    <CreditCard className="w-3.5 h-3.5 text-[#0866E8]" />
+                    <span>Verified ID Card Details (OCR Extracted)</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-slate-700">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase">Name</span>
+                      <span className="font-semibold">{item.ocrData.name}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase">Roll No.</span>
+                      <span className="font-mono">
+                        {isAdmin ? item.ocrData.rollNumber : '••••' + (item.ocrData.rollNumber?.slice(-4) || '••••')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Highlighted AI Analysis Card matching reference panel 6 */}
               <div className="bg-[#EAFDF2]/60 rounded-2xl border border-emerald-300 p-4 sm:p-5 space-y-3">
@@ -243,6 +279,26 @@ export const ItemDetailsPage: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ITEM STATUS LIFECYCLE TIMELINE CARD */}
+      <div className="bg-white rounded-2xl border border-[#E2E8F0] p-6 sm:p-8 shadow-xs space-y-4">
+        <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+          <Clock className="w-5 h-5 text-[#0866E8]" />
+          <div>
+            <h3 className="text-base font-bold text-[#0B1F3A]">
+              Item Status Lifecycle & Verification History
+            </h3>
+            <p className="text-xs text-slate-500">
+              Complete chronological audit trail from initial submission to final return
+            </p>
+          </div>
+        </div>
+
+        <StatusTimeline 
+          currentStatus={item.status} 
+          history={item.statusHistory}
+        />
       </div>
     </div>
   );

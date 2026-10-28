@@ -7,11 +7,12 @@ import {
   CheckCircle2, 
   XCircle, 
   AlertCircle, 
-  Sparkles, 
   ArrowRight,
   ShieldCheck,
-  Building
+  Building,
+  ShieldAlert
 } from 'lucide-react';
+import { StatusTimeline } from '../components/ui/StatusTimeline';
 
 export const MyClaimsPage: React.FC = () => {
   const { claims, items } = useApp();
@@ -39,30 +40,38 @@ export const MyClaimsPage: React.FC = () => {
 
       {/* Claims List */}
       {claims.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {claims.map((claim) => {
-            const statusConfig = {
-              'Pending Verification': {
-                icon: <Clock className="w-4 h-4 text-amber-600" />,
-                badge: 'bg-amber-50 text-amber-800 border-amber-200',
-                desc: 'Your claim request is currently being reviewed by Proctorial security officers.',
-              },
-              'Approved': {
-                icon: <CheckCircle2 className="w-4 h-4 text-emerald-600" />,
-                badge: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-                desc: 'Claim authorized! Please bring your physical Student ID to Central Security Desk (Admin Block Room 104) to collect your item.',
-              },
-              'Rejected': {
-                icon: <XCircle className="w-4 h-4 text-red-600" />,
-                badge: 'bg-red-50 text-red-800 border-red-200',
-                desc: 'Claim was not approved because provided proofs did not match verified device identifiers.',
-              },
-              'More Information Required': {
-                icon: <AlertCircle className="w-4 h-4 text-blue-600" />,
-                badge: 'bg-blue-50 text-blue-800 border-blue-200',
-                desc: 'Additional verification needed. Please check the admin note and provide supplementary documents.',
-              },
-            }[claim.status];
+            const rawStatus = (claim.status || 'Pending Verification').toLowerCase();
+            const isApproved = rawStatus.includes('approved');
+            const isRejected = rawStatus.includes('rejected');
+            const isMoreInfo = rawStatus.includes('info') || rawStatus.includes('more');
+
+            const statusConfig = isApproved
+              ? {
+                  icon: <CheckCircle2 className="w-4 h-4 text-emerald-600" />,
+                  badge: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                  desc: 'Claim authorized! Please bring your physical Student ID to Central Security Desk (Admin Block Room 104) to collect your item.',
+                }
+              : isRejected
+              ? {
+                  icon: <XCircle className="w-4 h-4 text-red-600" />,
+                  badge: 'bg-red-50 text-red-800 border-red-200',
+                  desc: 'Claim was not approved because provided proofs did not match verified device identifiers.',
+                }
+              : isMoreInfo
+              ? {
+                  icon: <AlertCircle className="w-4 h-4 text-blue-600" />,
+                  badge: 'bg-blue-50 text-blue-800 border-blue-200',
+                  desc: 'Additional verification needed. Please check the admin note and provide supplementary documents.',
+                }
+              : {
+                  icon: <Clock className="w-4 h-4 text-amber-600" />,
+                  badge: 'bg-amber-50 text-amber-800 border-amber-200',
+                  desc: 'Your claim request is currently being reviewed by Proctorial security officers.',
+                };
+
+            const linkedItem = items.find(i => i.id === claim.itemId);
 
             return (
               <div
@@ -126,6 +135,20 @@ export const MyClaimsPage: React.FC = () => {
                   <Building className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   <p>{statusConfig.desc}</p>
                 </div>
+
+                {/* Timeline for item if available */}
+                {linkedItem && (
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Verification Timeline:
+                    </span>
+                    <StatusTimeline
+                      currentStatus={linkedItem.status}
+                      history={linkedItem.statusHistory}
+                      compact={true}
+                    />
+                  </div>
+                )}
 
                 {/* Proofs preview row */}
                 {claim.proofs && claim.proofs.length > 0 && (

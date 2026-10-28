@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { Menu, X, ShieldAlert, Sparkles, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { FIXED_ADMIN_EMAIL } from '../../data/mockData';
+import { NotificationDropdown } from '../ui/NotificationDropdown';
 
 export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -57,6 +58,9 @@ export const Navbar: React.FC = () => {
 
           {/* Right Action buttons */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Real-time Notification Bell */}
+            <NotificationDropdown />
+
             {/* Account pill */}
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200">
               {isAdmin ? (
@@ -105,8 +109,9 @@ export const Navbar: React.FC = () => {
             </Link>
           </div>
 
-          {/* Mobile hamburger button */}
+          {/* Mobile hamburger button + notif */}
           <div className="flex md:hidden items-center gap-2">
+            <NotificationDropdown />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100"

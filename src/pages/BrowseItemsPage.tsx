@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { categories, campusLocations } from '../data/mockData';
 import { 
   Search, 
-  Filter, 
   MapPin, 
   Calendar, 
   Tag, 
   Sparkles, 
   ChevronRight, 
-  SlidersHorizontal,
-  RotateCcw
+  RotateCcw,
+  Sparkle,
+  X,
+  Cpu
 } from 'lucide-react';
+import { parseNaturalLanguageQuery } from '../services/naturalLanguageSearch';
+import { sanitizePublicItemDescription } from '../services/ocrService';
+import { NaturalLanguageInterpretation } from '../types';
 
 export const BrowseItemsPage: React.FC = () => {
   const { 
@@ -27,7 +31,47 @@ export const BrowseItemsPage: React.FC = () => {
     setSelectedLocation
   } = useApp();
 
-  const [dateFilter, setDateFilter] = useState('');
+  const [nlQuery, setNlQuery] = useState('');
+  const [isAnalyzingNL, setIsAnalyzingNL] = useState(false);
+  const [nlInterpretation, setNlInterpretation] = useState<NaturalLanguageInterpretation | null>(null);
+
+  // Debounce Natural Language interpretation
+  useEffect(() => {
+    if (!nlQuery.trim()) {
+      setNlInterpretation(null);
+      setIsAnalyzingNL(false);
+      return;
+    }
+
+    setIsAnalyzingNL(true);
+    const timer = setTimeout(() => {
+      const result = parseNaturalLanguageQuery(nlQuery);
+      setNlInterpretation(result);
+      setIsAnalyzingNL(false);
+
+      // Apply detected filters smoothly
+      if (result.detectedCategory) setSelectedCategory(result.detectedCategory);
+      if (result.detectedLocation) setSelectedLocation(result.detectedLocation);
+      if (result.detectedType) setSelectedStatus(result.detectedType === 'lost' ? 'Lost' : 'Found');
+      if (result.keywords.length > 0) setSearchQuery(result.keywords.join(' '));
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [nlQuery, setSelectedCategory, setSelectedLocation, setSelectedStatus, setSearchQuery]);
+
+  const removeChip = (field: string) => {
+    if (field === 'category') setSelectedCategory('All');
+    if (field === 'location') setSelectedLocation('All');
+    if (field === 'type') setSelectedStatus('All');
+    if (field === 'color' || field === 'keyword') setSearchQuery('');
+    
+    if (nlInterpretation) {
+      setNlInterpretation({
+        ...nlInterpretation,
+        interpretedChips: nlInterpretation.interpretedChips.filter(c => c.field !== field)
+      });
+    }
+  };
 
   // Filter items
   const filteredItems = items.filter((item) => {
@@ -61,10 +105,11 @@ export const BrowseItemsPage: React.FC = () => {
 
   const resetFilters = () => {
     setSearchQuery('');
+    setNlQuery('');
+    setNlInterpretation(null);
     setSelectedCategory('All');
     setSelectedStatus('All');
     setSelectedLocation('All');
-    setDateFilter('');
   };
 
   return (
@@ -76,27 +121,95 @@ export const BrowseItemsPage: React.FC = () => {
             Browse Lost & Found Items
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Search items reported across all campus locations. Filter by type, category, or spot.
+            Search items reported across all campus locations. Filter by type, category, or natural language query.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Link
             to="/report/lost"
-            className="px-4 py-2 rounded-xl bg-[#0866E8] hover:bg-[#0652ba] text-white text-xs font-semibold shadow-xs"
+            className="px-4 py-2 rounded-xl bg-[#0866E8] hover:bg-[#0652ba] text-white text-xs font-semibold shadow-xs transition-colors"
           >
             + Report Lost
           </Link>
           <Link
             to="/report/found"
-            className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-[#0866E8] border border-[#0866E8] text-xs font-semibold"
+            className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-[#0866E8] border border-[#0866E8] text-xs font-semibold transition-colors"
           >
             + Report Found
           </Link>
         </div>
       </div>
 
-      {/* Search and Filters Bar */}
+      {/* AI Natural Language Search Box */}
+      <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-slate-50 border border-blue-100 rounded-2xl p-4 sm:p-5 shadow-xs">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded-md bg-[#0866E8] text-white">
+              <Sparkle className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-xs font-bold text-[#0B1F3A] uppercase tracking-wider">
+              AI Natural Language Search (English & Hinglish)
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-400 hidden sm:inline">
+            Try: "Mera black bag library ke paas mila tha"
+          </span>
+        </div>
+
+        <div className="relative">
+          <input
+            type="text"
+            value={nlQuery}
+            onChange={(e) => setNlQuery(e.target.value)}
+            placeholder="Type naturally, e.g. 'Found black water bottle near canteen yesterday' or 'Mera ID card library me kho gaya'..."
+            className="w-full pl-4 pr-10 py-3 rounded-xl bg-white border border-blue-200 focus:outline-none focus:ring-2 focus:ring-[#0866E8]/20 focus:border-[#0866E8] text-sm text-slate-900 placeholder:text-slate-400 shadow-xs"
+          />
+          {nlQuery && (
+            <button
+              onClick={() => {
+                setNlQuery('');
+                setNlInterpretation(null);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Parsing state indicator */}
+        {isAnalyzingNL && (
+          <div className="flex items-center gap-2 mt-2.5 text-xs text-blue-700 font-medium animate-pulse">
+            <Cpu className="w-3.5 h-3.5 animate-spin" />
+            <span>Understanding your search query & extracting campus filters...</span>
+          </div>
+        )}
+
+        {/* Interpreted Filter Chips */}
+        {nlInterpretation && nlInterpretation.interpretedChips.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-blue-100">
+            <span className="text-[11px] font-semibold text-slate-600">Interpreted Filters:</span>
+            {nlInterpretation.interpretedChips.map((chip) => (
+              <span
+                key={chip.field}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-blue-200 text-[#0866E8] shadow-xs"
+              >
+                <span>{chip.label}</span>
+                <button
+                  onClick={() => removeChip(chip.field)}
+                  className="hover:text-red-500 rounded-full p-0.5"
+                  title="Remove filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Standard Search and Filter Controls */}
       <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4 sm:p-5 shadow-xs space-y-4">
         {/* Search Input */}
         <div className="relative">
@@ -190,12 +303,12 @@ export const BrowseItemsPage: React.FC = () => {
       {/* Results Count */}
       <div className="flex items-center justify-between text-xs text-slate-500 px-1">
         <span>Showing {filteredItems.length} registered item(s)</span>
-        {(selectedCategory !== 'All' || selectedStatus !== 'All' || searchQuery) && (
+        {(selectedCategory !== 'All' || selectedStatus !== 'All' || selectedLocation !== 'All' || searchQuery || nlQuery) && (
           <span className="text-[#0866E8] font-semibold">Active filter applied</span>
         )}
       </div>
 
-      {/* Grid of Item Cards matching requirements */}
+      {/* Grid of Item Cards */}
       {filteredItems.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredItems.map((item) => (
@@ -237,8 +350,9 @@ export const BrowseItemsPage: React.FC = () => {
                     </h3>
                   </div>
 
+                  {/* Redacted description for ID Card privacy */}
                   <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                    {item.description}
+                    {sanitizePublicItemDescription(item.description, item.category === 'ID Card & Wallets')}
                   </p>
 
                   <div className="space-y-1.5 text-xs text-slate-600 pt-1">
@@ -264,7 +378,7 @@ export const BrowseItemsPage: React.FC = () => {
                   to={`/items/${item.id}`}
                   className="w-full py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-[#0866E8] text-slate-700 hover:text-white font-semibold text-xs transition-all border border-slate-200 hover:border-[#0866E8] flex items-center justify-center gap-1.5"
                 >
-                  <span>View Details</span>
+                  <span>View Details & Timeline</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
